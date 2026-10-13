@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 font-medium hidden sm:block">
-                  Layanan Terpadu Ibu Hamil & Imunisasi Balita
+                  Layanan Terpadu Ibu Hamil & Imunisasi Balita Desa Kedung Jaya
                 </p>
               </div>
             </div>

@@ -128,7 +128,7 @@ export const LandingLoginView: React.FC<LandingLoginViewProps> = ({
               <img
                 src="/baby.jpg"
                 alt="Foto Bayi Sehat Posyandu"
-                className="w-full h-56 sm:h-72 object-cover object-center group-hover:scale-102 transition-transform duration-700"
+                className="w-full h-56 sm:h-72 object-cover group-hover:scale-102 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent flex items-end p-4 sm:p-6">
                 <div className="text-white">
@@ -145,8 +145,8 @@ export const LandingLoginView: React.FC<LandingLoginViewProps> = ({
             {/* Quick Metrics */}
             <div className="grid grid-cols-3 gap-3 pt-2">
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
-                <span className="block text-xl font-black text-teal-700">100%</span>
-                <span className="text-[11px] text-slate-500 font-semibold">Aman di HP</span>
+                <span className="block text-xl font-black text-teal-700">Desa Kedung Jaya</span>
+                <span className="text-[11px] text-slate-500 font-semibold">Berbasis Digital</span>
               </div>
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 text-center">
                 <span className="block text-xl font-black text-rose-600">Rumus Naegele</span>
