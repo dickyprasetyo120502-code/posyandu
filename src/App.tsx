@@ -148,12 +148,12 @@ export function App() {
           <div className="flex items-center gap-2">
             <HeartHandshake className="w-4 h-4 text-teal-600" />
             <span className="font-bold text-slate-700">Posyandu Digital Terpadu</span>
-            <span>• Mandiri & Responsif HP</span>
+            <span>• Mandiri & Responsif </span>
           </div>
           <div className="flex items-center gap-4 text-slate-400">
-            <span>Sistem Layanan Mandiri Desa</span>
+            <span>Sistem Layanan Posyandu</span>
             <span>•</span>
-            <span>Data Dimulai dari 0 Pasien</span>
+            <span>Desa Kedung Jaya</span>
           </div>
         </div>
       </footer>
