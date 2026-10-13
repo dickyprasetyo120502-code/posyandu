@@ -112,7 +112,7 @@ export const LandingLoginView: React.FC<LandingLoginViewProps> = ({
           <div className="lg:col-span-7 space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">
               <Sparkles className="w-4 h-4 text-teal-600" />
-              <span>Portal Terpadu Kesehatan Ibu Hamil & Balita</span>
+              <span>Portal Terpadu Kesehatan Ibu Hamil & Balita Desa Kedung jaya</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-800 tracking-tight leading-tight">

@@ -52,8 +52,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-extrabold text-lg sm:text-xl text-slate-800 tracking-tight">
-                    Posyandu<span className="text-teal-600">Digital</span>
+                    Posyandu<span className="text-teal-600">Digital </span>
                   </span>
+                  
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 uppercase tracking-wider">
                     {isWarga ? 'Orang Tua' : isPetugas ? 'Petugas' : 'Online'}
                   </span>
