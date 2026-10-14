@@ -10,7 +10,8 @@ import {
   Search,
   BookOpen,
   LayoutDashboard,
-  Heart
+  Heart,
+  Database
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -21,6 +22,7 @@ interface NavbarProps {
   onLogout: () => void;
   totalIbu: number;
   totalBalita: number;
+  dbConnected?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -31,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   totalIbu,
   totalBalita,
+  dbConnected,
 }) => {
   const isWarga = session?.role === 'warga';
   const isPetugas = session?.role === 'admin' || session?.role === 'kader';
@@ -58,6 +61,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 uppercase tracking-wider">
                     {isWarga ? 'Orang Tua' : isPetugas ? 'Petugas' : 'Online'}
                   </span>
+                  
+                  {dbConnected ? (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" title="Terhubung ke Database Cloud Supabase (PostgreSQL)">
+                      <Database className="w-2.5 h-2.5 text-emerald-600" />
+                      <span>Supabase Cloud</span>
+                    </span>
+                  ) : (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title="Berjalan dalam Cache Lokal">
+                      <span>Offline/Lokal</span>
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 font-medium hidden sm:block">
                   Layanan Terpadu Ibu Hamil & Imunisasi Balita Desa Kedung Jaya

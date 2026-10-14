@@ -7,6 +7,7 @@ import type {
   PemeriksaanKehamilan,
   JadwalPosyandu
 } from '../types';
+import { supabaseService } from './supabaseClient';
 
 const STORAGE_KEYS = {
   IBU_HAMIL: 'posyandu_ibu_hamil_data',
@@ -38,8 +39,46 @@ function setStoredArray<T>(key: string, data: T[]): void {
   }
 }
 
-// ================= STORAGE SERVICE =================
+// ================= STORAGE & SUPABASE DATABASE SERVICE =================
 export const storageService = {
+  // Cek Status Koneksi Database Supabase Cloud
+  async checkDatabaseHealth(): Promise<{ connected: boolean; engine?: string }> {
+    try {
+      const isConnected = await supabaseService.checkConnection();
+      if (isConnected) {
+        return { connected: true, engine: 'Supabase Cloud (PostgreSQL)' };
+      }
+      return { connected: false };
+    } catch {
+      return { connected: false };
+    }
+  },
+
+  // Sinkronisasi data dari Supabase Cloud ke Cache Lokal
+  async syncFromDatabase(): Promise<boolean> {
+    try {
+      const [ibu, balita, imunisasi, pertumbuhan, jadwal] = await Promise.all([
+        supabaseService.getIbuHamil(),
+        supabaseService.getBalita(),
+        supabaseService.getImunisasi(),
+        supabaseService.getPertumbuhan(),
+        supabaseService.getJadwal(),
+      ]);
+
+      let synced = false;
+      if (ibu) { setStoredArray(STORAGE_KEYS.IBU_HAMIL, ibu); synced = true; }
+      if (balita) { setStoredArray(STORAGE_KEYS.BALITA, balita); synced = true; }
+      if (imunisasi) { setStoredArray(STORAGE_KEYS.IMUNISASI, imunisasi); synced = true; }
+      if (pertumbuhan) { setStoredArray(STORAGE_KEYS.PERTUMBUHAN, pertumbuhan); synced = true; }
+      if (jadwal) { setStoredArray(STORAGE_KEYS.JADWAL, jadwal); synced = true; }
+
+      return synced;
+    } catch (err) {
+      console.warn('[Sync] Gagal menyinkronkan data dengan Supabase Cloud:', err);
+      return false;
+    }
+  },
+
   // Session
   getSession(): UserSession | null {
     try {
@@ -86,7 +125,22 @@ export const storageService = {
     return { registered: false, name: '' };
   },
 
-  // ================= JADWAL POSYANDU (SINKRON DENGAN WARGA) =================
+  // Verifikasi NIK real-time langsung ke Supabase Cloud
+  async verifyNikWithApi(nik: string): Promise<{ registered: boolean; name: string }> {
+    const clean = nik.trim();
+    if (!clean) return { registered: false, name: '' };
+    
+    // Cek Supabase Cloud
+    const cloudResult = await supabaseService.verifyNik(clean);
+    if (cloudResult && cloudResult.registered) {
+      return cloudResult;
+    }
+
+    // Fallback ke cache lokal
+    return this.findRegisteredWargaByNik(clean);
+  },
+
+  // ================= JADWAL POSYANDU =================
   getJadwal(): JadwalPosyandu[] {
     return getStoredArray<JadwalPosyandu>(STORAGE_KEYS.JADWAL);
   },
@@ -112,15 +166,22 @@ export const storageService = {
       };
       setStoredArray(STORAGE_KEYS.JADWAL, [savedItem, ...list]);
     }
+
+    // Persist langsung ke Supabase Cloud
+    supabaseService.saveJadwal(savedItem).catch(console.warn);
+
     return savedItem;
   },
 
   deleteJadwal(id: string): void {
     const list = this.getJadwal().filter((j) => j.id !== id);
     setStoredArray(STORAGE_KEYS.JADWAL, list);
+
+    // Persist delete ke Supabase Cloud
+    supabaseService.deleteJadwal(id).catch(console.warn);
   },
 
-  // ================= IBU HAMIL (Mulai dari 0) =================
+  // ================= IBU HAMIL =================
   getIbuHamil(): IbuHamil[] {
     return getStoredArray<IbuHamil>(STORAGE_KEYS.IBU_HAMIL);
   },
@@ -162,6 +223,10 @@ export const storageService = {
       };
       setStoredArray(STORAGE_KEYS.IBU_HAMIL, [savedItem, ...list]);
     }
+
+    // Persist langsung ke Supabase Cloud
+    supabaseService.saveIbuHamil(savedItem).catch(console.warn);
+
     return savedItem;
   },
 
@@ -177,15 +242,22 @@ export const storageService = {
 
     target.riwayatPemeriksaan = [newPemeriksaan, ...(target.riwayatPemeriksaan || [])];
     setStoredArray(STORAGE_KEYS.IBU_HAMIL, list);
+
+    // Persist langsung ke Supabase Cloud
+    supabaseService.addPemeriksaan(ibuId, newPemeriksaan).catch(console.warn);
+
     return true;
   },
 
   deleteIbuHamil(id: string): void {
     const list = this.getIbuHamil().filter((i) => i.id !== id);
     setStoredArray(STORAGE_KEYS.IBU_HAMIL, list);
+
+    // Persist delete ke Supabase Cloud
+    supabaseService.deleteIbuHamil(id).catch(console.warn);
   },
 
-  // ================= BALITA (Mulai dari 0, NIK Opsional) =================
+  // ================= BALITA =================
   getBalita(): Balita[] {
     return getStoredArray<Balita>(STORAGE_KEYS.BALITA);
   },
@@ -209,7 +281,6 @@ export const storageService = {
         (b) => b.nik && b.nik.trim() === cleanNik && b.id !== data.id
       );
       if (duplicateNik) {
-        // Jika dalam 1 keluarga (nikIbu sama atau memakai NIK orang tua), izinkan karena 1 keluarga bisa punya 2+ anak
         const sameFamily = 
           (cleanNikIbu && duplicateNik.nikIbu && duplicateNik.nikIbu.trim() === cleanNikIbu) ||
           (cleanNikIbu && cleanNik === cleanNikIbu);
@@ -243,6 +314,10 @@ export const storageService = {
       };
       setStoredArray(STORAGE_KEYS.BALITA, [savedItem, ...list]);
     }
+
+    // Persist langsung ke Supabase Cloud
+    supabaseService.saveBalita(savedItem).catch(console.warn);
+
     return savedItem;
   },
 
@@ -253,6 +328,9 @@ export const storageService = {
     setStoredArray(STORAGE_KEYS.IMUNISASI, imunisasi);
     const pertumbuhan = this.getPertumbuhan().filter((p) => p.balitaId !== id);
     setStoredArray(STORAGE_KEYS.PERTUMBUHAN, pertumbuhan);
+
+    // Persist delete ke Supabase Cloud
+    supabaseService.deleteBalita(id).catch(console.warn);
   },
 
   // ================= IMUNISASI =================
@@ -271,12 +349,19 @@ export const storageService = {
       id: 'IMU-' + Date.now(),
     };
     setStoredArray(STORAGE_KEYS.IMUNISASI, [newRecord, ...list]);
+
+    // Persist langsung ke Supabase Cloud
+    supabaseService.saveImunisasi(newRecord).catch(console.warn);
+
     return newRecord;
   },
 
   deleteImunisasi(id: string): void {
     const list = this.getImunisasi().filter((i) => i.id !== id);
     setStoredArray(STORAGE_KEYS.IMUNISASI, list);
+
+    // Persist delete ke Supabase Cloud
+    supabaseService.deleteImunisasi(id).catch(console.warn);
   },
 
   // ================= PERTUMBUHAN =================
@@ -295,12 +380,19 @@ export const storageService = {
       id: 'TUMB-' + Date.now(),
     };
     setStoredArray(STORAGE_KEYS.PERTUMBUHAN, [newRecord, ...list]);
+
+    // Persist langsung ke Supabase Cloud
+    supabaseService.savePertumbuhan(newRecord).catch(console.warn);
+
     return newRecord;
   },
 
   deletePertumbuhan(id: string): void {
     const list = this.getPertumbuhan().filter((p) => p.id !== id);
     setStoredArray(STORAGE_KEYS.PERTUMBUHAN, list);
+
+    // Persist delete ke Supabase Cloud
+    supabaseService.deletePertumbuhan(id).catch(console.warn);
   },
 
   // ================= BACKUP & RESTORE =================
@@ -312,7 +404,7 @@ export const storageService = {
       pertumbuhan: this.getPertumbuhan(),
       jadwal: this.getJadwal(),
       exportedAt: new Date().toISOString(),
-      version: '1.1',
+      version: '3.0-supabase-cloud',
     };
     return JSON.stringify(backupData, null, 2);
   },
@@ -320,12 +412,27 @@ export const storageService = {
   importBackup(jsonString: string): { success: boolean; message: string } {
     try {
       const parsed = JSON.parse(jsonString);
-      if (Array.isArray(parsed.ibuHamil)) setStoredArray(STORAGE_KEYS.IBU_HAMIL, parsed.ibuHamil);
-      if (Array.isArray(parsed.balita)) setStoredArray(STORAGE_KEYS.BALITA, parsed.balita);
-      if (Array.isArray(parsed.imunisasi)) setStoredArray(STORAGE_KEYS.IMUNISASI, parsed.imunisasi);
-      if (Array.isArray(parsed.pertumbuhan)) setStoredArray(STORAGE_KEYS.PERTUMBUHAN, parsed.pertumbuhan);
-      if (Array.isArray(parsed.jadwal)) setStoredArray(STORAGE_KEYS.JADWAL, parsed.jadwal);
-      return { success: true, message: 'Data cadangan Posyandu berhasil dipulihkan!' };
+      if (Array.isArray(parsed.ibuHamil)) {
+        setStoredArray(STORAGE_KEYS.IBU_HAMIL, parsed.ibuHamil);
+        parsed.ibuHamil.forEach((item: any) => supabaseService.saveIbuHamil(item));
+      }
+      if (Array.isArray(parsed.balita)) {
+        setStoredArray(STORAGE_KEYS.BALITA, parsed.balita);
+        parsed.balita.forEach((item: any) => supabaseService.saveBalita(item));
+      }
+      if (Array.isArray(parsed.imunisasi)) {
+        setStoredArray(STORAGE_KEYS.IMUNISASI, parsed.imunisasi);
+        parsed.imunisasi.forEach((item: any) => supabaseService.saveImunisasi(item));
+      }
+      if (Array.isArray(parsed.pertumbuhan)) {
+        setStoredArray(STORAGE_KEYS.PERTUMBUHAN, parsed.pertumbuhan);
+        parsed.pertumbuhan.forEach((item: any) => supabaseService.savePertumbuhan(item));
+      }
+      if (Array.isArray(parsed.jadwal)) {
+        setStoredArray(STORAGE_KEYS.JADWAL, parsed.jadwal);
+        parsed.jadwal.forEach((item: any) => supabaseService.saveJadwal(item));
+      }
+      return { success: true, message: 'Data cadangan Posyandu berhasil dipulihkan dan disinkronkan ke Supabase Cloud!' };
     } catch {
       return { success: false, message: 'Format data JSON tidak valid atau rusak.' };
     }

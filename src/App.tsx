@@ -20,9 +20,19 @@ export function App() {
   const [balitaList, setBalitaList] = useState<Balita[]>([]);
   const [imunisasiList, setImunisasiList] = useState<ImunisasiRecord[]>([]);
   const [pertumbuhanList, setPertumbuhanList] = useState<PertumbuhanRecord[]>([]);
+  const [dbConnected, setDbConnected] = useState(false);
 
-  // Muat data saat pertama dibuka
-  const refreshAllData = () => {
+  // Muat data saat pertama dibuka & sinkronkan dari database
+  const refreshAllData = async () => {
+    // Cek koneksi backend SQLite
+    const health = await storageService.checkDatabaseHealth();
+    setDbConnected(health.connected);
+
+    // Sinkronkan data jika server aktif
+    if (health.connected) {
+      await storageService.syncFromDatabase();
+    }
+
     setIbuHamilList(storageService.getIbuHamil());
     setBalitaList(storageService.getBalita());
     setImunisasiList(storageService.getImunisasi());
@@ -30,6 +40,9 @@ export function App() {
   };
 
   useEffect(() => {
+    // Ambil data pasien (disinkronkan dengan database SQLite)
+    refreshAllData();
+
     // Ambil session jika ada
     const savedSession = storageService.getSession();
     if (savedSession) {
@@ -41,9 +54,6 @@ export function App() {
         setCurrentTab('dashboard');
       }
     }
-
-    // Ambil data pasien (0 jika baru)
-    refreshAllData();
   }, []);
 
   // Perlindungan Privasi: Warga tidak boleh mengakses data rekapitulasi semua warga
@@ -83,6 +93,7 @@ export function App() {
         onLogout={handleLogout}
         totalIbu={ibuHamilList.length}
         totalBalita={balitaList.length}
+        dbConnected={dbConnected}
       />
 
       {/* Main Content Area */}

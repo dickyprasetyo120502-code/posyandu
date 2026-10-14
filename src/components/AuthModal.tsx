@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { UserRole, UserSession } from '../types';
 import { storageService } from '../services/storage';
+import { supabaseService } from '../services/supabaseClient';
 import { 
   X, 
   ShieldCheck, 
@@ -37,7 +38,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleWargaLogin = (e: React.FormEvent) => {
+  const handleWargaLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -51,8 +52,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // Validasi ketat: Hanya NIK yang terdaftar
-    const registeredCheck = storageService.findRegisteredWargaByNik(cleanNik);
+    // Validasi real-time ke Database SQLite & fallback cache
+    const registeredCheck = await storageService.verifyNikWithApi(cleanNik);
     if (!registeredCheck.registered) {
       setErrorMsg(
         `NIK ${cleanNik} belum terdaftar di sistem Posyandu! Pendaftaran NIK hanya dapat dilakukan oleh Admin atau Kader Posyandu.`
@@ -70,10 +71,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     onClose();
   };
 
-  const handlePetugasLogin = (e: React.FormEvent) => {
+  const handlePetugasLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
+    // Coba autentikasi ke database cloud Supabase
+    try {
+      const cloudSession = await supabaseService.loginPetugas(username, password, petugasRole);
+      if (cloudSession) {
+        onLoginSuccess(cloudSession);
+        onClose();
+        return;
+      }
+    } catch {
+      // Abaikan jika offline, lanjut ke fallback
+    }
+
+    // Fallback autentikasi lokal
     if (petugasRole === 'admin') {
       if (username.toLowerCase() === 'admin' && password === 'admin123') {
         onLoginSuccess({
@@ -275,10 +289,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                   />
                 </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-100 text-[11px] text-slate-600">
-                Default: Kader (<code className="font-mono bg-white px-1">kader</code> / <code className="font-mono bg-white px-1">kader123</code>), Admin (<code className="font-mono bg-white px-1">admin</code> / <code className="font-mono bg-white px-1">admin123</code>)
               </div>
 
               <button

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { UserRole, UserSession, IbuHamil, Balita } from '../types';
 import { storageService } from '../services/storage';
+import { supabaseService } from '../services/supabaseClient';
 import { 
   Heart, 
   Baby, 
@@ -46,7 +47,7 @@ export const LandingLoginView: React.FC<LandingLoginViewProps> = ({
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleWargaLogin = (e: React.FormEvent) => {
+  const handleWargaLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     const cleanNik = nikInput.trim();
@@ -59,8 +60,8 @@ export const LandingLoginView: React.FC<LandingLoginViewProps> = ({
       return;
     }
 
-    // Validasi ketat: HANYA NIK YANG SUDAH TERDAFTAR OLEH ADMIN/KADER YANG BISA MASUK
-    const registeredCheck = storageService.findRegisteredWargaByNik(cleanNik);
+    // Validasi ketat ke Database SQLite & fallback cache
+    const registeredCheck = await storageService.verifyNikWithApi(cleanNik);
     if (!registeredCheck.registered) {
       setErrorMsg(
         `NIK ${cleanNik} belum terdaftar di sistem Posyandu! Pendaftaran NIK hanya dapat dilakukan oleh Admin atau Kader Posyandu saat pemeriksaan.`
@@ -75,10 +76,22 @@ export const LandingLoginView: React.FC<LandingLoginViewProps> = ({
     });
   };
 
-  const handlePetugasLogin = (e: React.FormEvent) => {
+  const handlePetugasLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
+    // Coba autentikasi ke database cloud Supabase
+    try {
+      const cloudSession = await supabaseService.loginPetugas(username, password, petugasRole);
+      if (cloudSession) {
+        onLoginSuccess(cloudSession);
+        return;
+      }
+    } catch {
+      // Abaikan jika offline, lanjut ke fallback
+    }
+
+    // Fallback autentikasi lokal
     if (petugasRole === 'admin') {
       if (username.toLowerCase() === 'admin' && password === 'admin123') {
         onLoginSuccess({
@@ -318,10 +331,6 @@ export const LandingLoginView: React.FC<LandingLoginViewProps> = ({
                       className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                   </div>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-slate-100 text-[11px] text-slate-600">
-                  Default login: Kader (<code className="font-mono bg-white px-1">kader</code> / <code className="font-mono bg-white px-1">kader123</code>), Admin (<code className="font-mono bg-white px-1">admin</code> / <code className="font-mono bg-white px-1">admin123</code>)
                 </div>
 
                 <button
